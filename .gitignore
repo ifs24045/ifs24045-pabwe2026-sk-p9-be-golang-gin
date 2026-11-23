@@ -1,0 +1,19 @@
+# Environment
+.env
+
+# Binary (wajib diawali slash)
+/server
+/main
+/app
+/server.exe
+/main.exe
+/app.exe
+
+# Test & coverage
+*.out
+coverage.html
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
