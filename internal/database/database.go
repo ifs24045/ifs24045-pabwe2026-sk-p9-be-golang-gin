@@ -67,13 +67,22 @@ func Migrate(db *gorm.DB) error {
 	return db.AutoMigrate(&User{}, &Post{})
 }
 
-// Seed membuat akun bawaan admin dan member. Jika akun sudah ada, password dan
-// role-nya disamakan kembali dengan konfigurasi saat ini.
+// Seed membuat akun bawaan. Akun admin dari .env selalu dibuat; jika berbeda dari
+// admin/admin, akun admin/admin bawaan penilaian tetap disiapkan juga.
 func Seed(db *gorm.DB, cfg *config.Config) error {
-	if err := seedUser(db, cfg.AdminUsername, "admin@delcom.org", cfg.AdminPassword, "admin"); err != nil {
-		return err
+	accounts := []struct{ username, email, password, role string }{
+		{cfg.AdminUsername, cfg.AdminUsername + "@delcom.org", cfg.AdminPassword, "admin"},
+		{"member", "member@delcom.org", "member", "member"},
 	}
-	return seedUser(db, "member", "member@delcom.org", "member", "member")
+	if cfg.AdminUsername != "admin" || cfg.AdminPassword != "admin" {
+		accounts = append(accounts, struct{ username, email, password, role string }{"admin", "admin@delcom.org", "admin", "admin"})
+	}
+	for _, a := range accounts {
+		if err := seedUser(db, a.username, a.email, a.password, a.role); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func seedUser(db *gorm.DB, username, email, password, role string) error {

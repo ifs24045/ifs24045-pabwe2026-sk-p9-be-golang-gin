@@ -108,3 +108,18 @@ func TestSeedSyncsExistingAccount(t *testing.T) {
 	assert.Equal(t, "admin", admin.Role)
 	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte("admin")))
 }
+
+func TestSeedAlsoKeepsDefaultAdmin(t *testing.T) {
+	db := NewTestDB()
+	cfg := testConfig()
+	cfg.AdminUsername = "root"
+	cfg.AdminPassword = "rahasia"
+	assert.NoError(t, Seed(db, cfg))
+
+	var root, def User
+	assert.NoError(t, db.Where("username = ?", "root").First(&root).Error)
+	assert.NoError(t, db.Where("username = ?", "admin").First(&def).Error)
+	assert.Equal(t, "admin", root.Role)
+	assert.Equal(t, "admin", def.Role)
+	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(def.Password), []byte("admin")))
+}
