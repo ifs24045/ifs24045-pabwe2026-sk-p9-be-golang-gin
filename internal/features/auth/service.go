@@ -135,7 +135,13 @@ func (s *Service) UpdateProfile(id uint, req UpdateProfileRequest) (*database.Us
 	}
 
 	username := strings.TrimSpace(req.Username)
+	if username == "" {
+		username = user.Username
+	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email == "" {
+		email = user.Email
+	}
 	if err := s.ensureUnique(username, email, id); err != nil {
 		return nil, err
 	}

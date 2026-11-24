@@ -56,9 +56,12 @@ type PostResponse struct {
 
 // StatsResponse adalah ringkasan 3 kartu statistik penulis.
 type StatsResponse struct {
-	Total     int64 `json:"total"`
-	Published int64 `json:"published"`
-	Draft     int64 `json:"draft"`
+	Total         int64 `json:"total"`
+	Published     int64 `json:"published"`
+	Draft         int64 `json:"draft"`
+	TotalArticles int64 `json:"total_articles"`
+	TotalSelesai  int64 `json:"total_selesai"`
+	BelumSelesai  int64 `json:"belum_selesai"`
 }
 
 // AdminUserResponse adalah baris direktori pengguna untuk admin.

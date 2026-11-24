@@ -389,7 +389,7 @@ func TestServiceUpdate(t *testing.T) {
 	assert.NotNil(t, updated.Author)
 
 	_, err = svc.Update(other.ID, created.ID, req)
-	assert.ErrorIs(t, err, ErrPostNotFound)
+	assert.ErrorIs(t, err, ErrPostForbidden)
 
 	_, err = svc.Update(owner.ID, 9999, req)
 	assert.ErrorIs(t, err, ErrPostNotFound)
@@ -426,7 +426,7 @@ func TestServiceTogglePublish(t *testing.T) {
 	assert.Nil(t, draft.PublishedAt)
 
 	_, err = svc.TogglePublish(other.ID, created.ID)
-	assert.ErrorIs(t, err, ErrPostNotFound)
+	assert.ErrorIs(t, err, ErrPostForbidden)
 
 	stub.fail["Update"] = errBoom
 	_, err = svc.TogglePublish(owner.ID, created.ID)
@@ -441,7 +441,7 @@ func TestServiceDelete(t *testing.T) {
 
 	created, _ := svc.Create(owner.ID, PostRequest{Title: "Artikel", Content: "isi"})
 
-	assert.ErrorIs(t, svc.Delete(other.ID, created.ID), ErrPostNotFound)
+	assert.ErrorIs(t, svc.Delete(other.ID, created.ID), ErrPostForbidden)
 
 	stub.fail["Delete"] = errBoom
 	assert.ErrorIs(t, svc.Delete(owner.ID, created.ID), errBoom)
@@ -488,7 +488,10 @@ func TestServiceReadFlow(t *testing.T) {
 
 	stats, err := svc.Stats(a.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, StatsResponse{Total: 2, Published: 1, Draft: 1}, *stats)
+	assert.Equal(t, StatsResponse{
+		Total: 2, Published: 1, Draft: 1,
+		TotalArticles: 2, TotalSelesai: 1, BelumSelesai: 1,
+	}, *stats)
 
 	users, err := svc.AdminListUsers()
 	assert.NoError(t, err)
@@ -505,8 +508,9 @@ func TestServiceReadFlow(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, userPosts, 2)
 
-	_, err = svc.AdminListUserPosts(9999)
-	assert.ErrorIs(t, err, ErrUserNotFound)
+	none, err := svc.AdminListUserPosts(9999)
+	assert.NoError(t, err)
+	assert.Empty(t, none)
 }
 
 func TestServiceReadErrors(t *testing.T) {
@@ -547,10 +551,6 @@ func TestServiceReadErrors(t *testing.T) {
 
 	stub.fail["ListAll"] = errBoom
 	_, err = svc.AdminListPosts()
-	assert.ErrorIs(t, err, errBoom)
-
-	stub.fail["FindUser"] = errBoom
-	_, err = svc.AdminListUserPosts(u.ID)
 	assert.ErrorIs(t, err, errBoom)
 }
 
@@ -638,9 +638,9 @@ func TestHandlerAuthorFlow(t *testing.T) {
 	assert.Len(t, decode(t, w)["data"], 0)
 	assert.Equal(t, http.StatusNotFound, call(r, http.MethodGet, "/public/posts/halo-dunia", "", "").Code)
 
-	// baca milik sendiri / milik orang lain
+	// baca milik sendiri / milik orang lain (403)
 	assert.Equal(t, http.StatusOK, call(r, http.MethodGet, "/posts/"+id, "", uid(owner)).Code)
-	assert.Equal(t, http.StatusNotFound, call(r, http.MethodGet, "/posts/"+id, "", uid(other)).Code)
+	assert.Equal(t, http.StatusForbidden, call(r, http.MethodGet, "/posts/"+id, "", uid(other)).Code)
 	assert.Equal(t, http.StatusOK, call(r, http.MethodGet, "/posts", "", uid(owner)).Code)
 
 	// update
@@ -648,13 +648,13 @@ func TestHandlerAuthorFlow(t *testing.T) {
 	w = call(r, http.MethodPut, "/posts/"+id, `{"title":"Halo Dunia Baru","content":"isi baru"}`, uid(owner))
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "Halo Dunia Baru", decode(t, w)["data"].(map[string]interface{})["title"])
-	assert.Equal(t, http.StatusNotFound, call(r, http.MethodPut, "/posts/"+id, `{"title":"x","content":"y"}`, uid(other)).Code)
+	assert.Equal(t, http.StatusForbidden, call(r, http.MethodPut, "/posts/"+id, `{"title":"x","content":"y"}`, uid(other)).Code)
 
 	// toggle -> terbit
 	w = call(r, http.MethodPatch, "/posts/"+id+"/toggle-publish", "", uid(owner))
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, true, decode(t, w)["data"].(map[string]interface{})["is_published"])
-	assert.Equal(t, http.StatusNotFound, call(r, http.MethodPatch, "/posts/"+id+"/toggle-publish", "", uid(other)).Code)
+	assert.Equal(t, http.StatusForbidden, call(r, http.MethodPatch, "/posts/"+id+"/toggle-publish", "", uid(other)).Code)
 
 	// statistik
 	w = call(r, http.MethodGet, "/posts/stats", "", uid(owner))
@@ -663,6 +663,9 @@ func TestHandlerAuthorFlow(t *testing.T) {
 	assert.Equal(t, float64(1), stats["total"])
 	assert.Equal(t, float64(1), stats["published"])
 	assert.Equal(t, float64(0), stats["draft"])
+	assert.Equal(t, float64(1), stats["total_articles"])
+	assert.Equal(t, float64(1), stats["total_selesai"])
+	assert.Equal(t, float64(0), stats["belum_selesai"])
 
 	// publik setelah terbit
 	w = call(r, http.MethodGet, "/public/posts?q=halo&category=Umum", "", "")
@@ -683,10 +686,12 @@ func TestHandlerAuthorFlow(t *testing.T) {
 	w = call(r, http.MethodGet, "/admin/users/"+uid(owner)+"/posts", "", uid(owner))
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Len(t, decode(t, w)["data"], 1)
-	assert.Equal(t, http.StatusNotFound, call(r, http.MethodGet, "/admin/users/9999/posts", "", uid(owner)).Code)
+	w = call(r, http.MethodGet, "/admin/users/9999/posts", "", uid(owner))
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Len(t, decode(t, w)["data"], 0)
 
 	// hapus
-	assert.Equal(t, http.StatusNotFound, call(r, http.MethodDelete, "/posts/"+id, "", uid(other)).Code)
+	assert.Equal(t, http.StatusForbidden, call(r, http.MethodDelete, "/posts/"+id, "", uid(other)).Code)
 	assert.Equal(t, http.StatusOK, call(r, http.MethodDelete, "/posts/"+id, "", uid(owner)).Code)
 	assert.Equal(t, http.StatusNotFound, call(r, http.MethodGet, "/posts/"+id, "", uid(owner)).Code)
 }

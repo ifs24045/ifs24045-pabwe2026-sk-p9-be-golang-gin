@@ -25,6 +25,8 @@ func respondError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrPostNotFound), errors.Is(err, ErrUserNotFound):
 		response.Fail(c, http.StatusNotFound, err.Error())
+	case errors.Is(err, ErrPostForbidden):
+		response.Fail(c, http.StatusForbidden, err.Error())
 	case errors.Is(err, ErrInvalidCategory):
 		response.Fail(c, http.StatusBadRequest, err.Error())
 	default:

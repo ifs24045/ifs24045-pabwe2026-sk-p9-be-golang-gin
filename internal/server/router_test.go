@@ -111,6 +111,7 @@ func TestMemberFlow(t *testing.T) {
 
 	w := call(r, http.MethodPost, "/api/auth/register", `{"username":"budi","email":"budi@mail.com","password":"rahasia123"}`, "")
 	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.NotEmpty(t, decode(t, w)["data"].(map[string]interface{})["token"])
 	token := login(t, r, "budi", "rahasia123")
 
 	// tanpa token ditolak
@@ -165,5 +166,9 @@ func TestAdminFlow(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, call(r, http.MethodGet, "/api/admin/posts", "", token).Code)
 	assert.Equal(t, http.StatusOK, call(r, http.MethodGet, "/api/admin/users/1/posts", "", token).Code)
-	assert.Equal(t, http.StatusNotFound, call(r, http.MethodGet, "/api/admin/users/9999/posts", "", token).Code)
-}
+
+	// pengguna yang tidak ada mengembalikan daftar kosong, bukan error
+	w = call(r, http.MethodGet, "/api/admin/users/9999/posts", "", token)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Len(t, decode(t, w)["data"], 0)
+}	

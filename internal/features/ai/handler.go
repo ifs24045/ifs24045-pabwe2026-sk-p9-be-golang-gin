@@ -40,7 +40,7 @@ func respondError(c *gin.Context, err error) {
 func (h *Handler) Generate(c *gin.Context) {
 	var req GenerateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, "Topik artikel wajib diisi (minimal 3 karakter)")
+	response.Fail(c, http.StatusBadRequest, "Field topic wajib diisi (minimal 3 karakter)")
 		return
 	}
 

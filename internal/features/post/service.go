@@ -15,6 +15,7 @@ var (
 	ErrPostNotFound    = errors.New("Artikel tidak ditemukan")
 	ErrUserNotFound    = errors.New("Pengguna tidak ditemukan")
 	ErrInvalidCategory = errors.New("Kategori tidak valid")
+	ErrPostForbidden   = errors.New("Anda tidak memiliki akses ke artikel ini")
 )
 
 // Service berisi logika bisnis artikel.
@@ -134,14 +135,14 @@ func (s *Service) uniqueSlug(title string) (string, error) {
 	}
 }
 
-// getOwned mengambil artikel milik penulis; artikel orang lain dianggap tidak ada.
+// getOwned mengambil artikel milik penulis; artikel orang lain ditolak (403).
 func (s *Service) getOwned(userID, id uint) (*database.Post, error) {
 	post, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, lookupError(err, ErrPostNotFound)
 	}
 	if post.UserID != userID {
-		return nil, ErrPostNotFound
+		return nil, ErrPostForbidden
 	}
 	return post, nil
 }
@@ -276,10 +277,14 @@ func (s *Service) Stats(userID uint) (*StatsResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	draft := count.Total - count.Published
 	return &StatsResponse{
-		Total:     count.Total,
-		Published: count.Published,
-		Draft:     count.Total - count.Published,
+		Total:         count.Total,
+		Published:     count.Published,
+		Draft:         draft,
+		TotalArticles: count.Total,
+		TotalSelesai:  count.Published,
+		BelumSelesai:  draft,
 	}, nil
 }
 
@@ -322,10 +327,8 @@ func (s *Service) AdminListPosts() ([]PostResponse, error) {
 }
 
 // AdminListUserPosts mengambil seluruh artikel milik pengguna tertentu.
+// Pengguna yang tidak ada menghasilkan daftar kosong, bukan error.
 func (s *Service) AdminListUserPosts(userID uint) ([]PostResponse, error) {
-	if _, err := s.repo.FindUser(userID); err != nil {
-		return nil, lookupError(err, ErrUserNotFound)
-	}
 	posts, err := s.repo.ListByUser(userID)
 	if err != nil {
 		return nil, err

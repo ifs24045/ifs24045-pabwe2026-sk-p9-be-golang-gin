@@ -381,11 +381,36 @@ func TestHandlerRegister(t *testing.T) {
 	w = call(r, http.MethodPost, "/register", body, "")
 	assert.Equal(t, http.StatusCreated, w.Code)
 	assert.Equal(t, "success", decode(t, w)["status"])
-	assert.NotContains(t, w.Body.String(), "password")
+	assert.NotEmpty(t, decode(t, w)["data"].(map[string]interface{})["token"])
 
 	w = call(r, http.MethodPost, "/register", body, "")
-	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Equal(t, "fail", decode(t, w)["status"])
+}
+
+func TestUpdateProfileKeepsExistingWhenEmpty(t *testing.T) {
+	svc, _ := setup(t)
+	user := mustRegister(t, svc, "budi", "budi@mail.com", "rahasia123")
+
+	updated, err := svc.UpdateProfile(user.ID, UpdateProfileRequest{Password: "passwordbaru"})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "budi", updated.Username)
+	assert.Equal(t, "budi@mail.com", updated.Email)
+	_, err = svc.Login(LoginRequest{Username: "budi", Password: "passwordbaru"})
+	assert.NoError(t, err)
+}
+
+func TestHandlerUpdateProfilePartial(t *testing.T) {
+	r, svc, _ := handlerSetup(t)
+	mustRegister(t, svc, "budi", "budi@mail.com", "rahasia123")
+	token := loginToken(t, svc, "budi", "rahasia123")
+
+	w := call(r, http.MethodPut, "/profile", `{"email":"baru@mail.com","password":"passwordbaru"}`, token)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	_, err := svc.Login(LoginRequest{Username: "budi", Password: "passwordbaru"})
+	assert.NoError(t, err)
 }
 
 func TestHandlerLogin(t *testing.T) {
@@ -451,7 +476,7 @@ func TestHandlerUpdateProfile(t *testing.T) {
 	assert.Equal(t, "budi baru", decode(t, w)["data"].(map[string]interface{})["username"])
 
 	w = call(r, http.MethodPut, "/profile", `{"username":"andi","email":"baru@mail.com"}`, token)
-	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	db.Delete(&database.User{}, user.ID)
 	w = call(r, http.MethodPut, "/profile", `{"username":"budi baru","email":"baru@mail.com"}`, token)

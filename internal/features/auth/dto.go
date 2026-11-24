@@ -19,10 +19,11 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// UpdateProfileRequest adalah payload pembaruan profil. Password opsional.
+// UpdateProfileRequest adalah payload pembaruan profil. Semua field opsional;
+// field yang kosong tidak diubah.
 type UpdateProfileRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
-	Email    string `json:"email" binding:"required,email"`
+	Username string `json:"username" binding:"omitempty,min=3,max=50"`
+	Email    string `json:"email" binding:"omitempty,email"`
 	Password string `json:"password" binding:"omitempty,min=6,max=72"`
 }
 

@@ -24,7 +24,7 @@ func NewHandler(service *Service) *Handler {
 func respondError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrUsernameTaken), errors.Is(err, ErrEmailTaken):
-		response.Fail(c, http.StatusConflict, err.Error())
+		response.Fail(c, http.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrInvalidCredentials):
 		response.Fail(c, http.StatusUnauthorized, err.Error())
 	case errors.Is(err, ErrUserNotFound):
@@ -63,8 +63,11 @@ func (h *Handler) Register(c *gin.Context) {
 		respondError(c, err)
 		return
 	}
-	response.Success(c, http.StatusCreated, "Registrasi berhasil", ToUserResponse(user))
-}
+		response.Success(c, http.StatusCreated, "Registrasi berhasil", AuthResponse{
+		Token: h.service.GenerateToken(user),
+		User:  ToUserResponse(user),
+	})
+	}
 
 // Login godoc
 // @Summary Login dan terima token JWT
