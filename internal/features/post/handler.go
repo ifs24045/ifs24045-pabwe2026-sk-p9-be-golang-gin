@@ -209,6 +209,12 @@ func (h *Handler) Update(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Cek artikel ada dan milik penulis lebih dulu, sebelum memvalidasi isi
+	// permintaan: ID tidak ada -> 404, milik orang lain -> 403.
+	if _, err := h.service.GetMine(userID, id); err != nil {
+		respondError(c, err)
+		return
+	}
 	var req PostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, http.StatusBadRequest, "Judul dan konten artikel wajib diisi")

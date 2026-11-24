@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -66,7 +67,8 @@ func Migrate(db *gorm.DB) error {
 	return db.AutoMigrate(&User{}, &Post{})
 }
 
-// Seed membuat akun bawaan admin dan member jika belum ada.
+// Seed membuat akun bawaan admin dan member. Jika akun sudah ada, password dan
+// role-nya disamakan kembali dengan konfigurasi saat ini.
 func Seed(db *gorm.DB, cfg *config.Config) error {
 	if err := seedUser(db, cfg.AdminUsername, "admin@delcom.org", cfg.AdminPassword, "admin"); err != nil {
 		return err
@@ -75,12 +77,11 @@ func Seed(db *gorm.DB, cfg *config.Config) error {
 }
 
 func seedUser(db *gorm.DB, username, email, password, role string) error {
-	var count int64
-	if err := db.Model(&User{}).Where("username = ?", username).Count(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
-		return nil
+	var existing User
+	lookupErr := db.Where("username = ?", username).First(&existing).Error
+	found := lookupErr == nil
+	if lookupErr != nil && !errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+		return lookupErr
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -88,10 +89,17 @@ func seedUser(db *gorm.DB, username, email, password, role string) error {
 		return err
 	}
 
-	return db.Create(&User{
-		Username: username,
-		Email:    email,
-		Password: string(hash),
-		Role:     role,
+	if !found {
+		return db.Create(&User{
+			Username: username,
+			Email:    email,
+			Password: string(hash),
+			Role:     role,
+		}).Error
+	}
+
+	return db.Model(&existing).Updates(map[string]interface{}{
+		"password": string(hash),
+		"role":     role,
 	}).Error
 }

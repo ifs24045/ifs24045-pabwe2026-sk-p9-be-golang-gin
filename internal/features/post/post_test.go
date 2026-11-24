@@ -752,3 +752,14 @@ func TestRespondErrorDefault(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Equal(t, "error", decode(t, w)["status"])
 }
+
+func TestHandlerUpdateChecksOwnershipBeforeBody(t *testing.T) {
+	r, db := handlerSetup(t)
+	owner := mkUser(t, db, "andi")
+	other := mkUser(t, db, "budi")
+	p := mkPost(t, db, owner.ID, "Judul", "judul", "Umum", false)
+
+	// body kosong tetap menghasilkan 404 / 403, bukan 400
+	assert.Equal(t, http.StatusNotFound, call(r, http.MethodPut, "/posts/9999", `{}`, uid(owner)).Code)
+	assert.Equal(t, http.StatusForbidden, call(r, http.MethodPut, "/posts/"+strconv.Itoa(int(p.ID)), `{}`, uid(other)).Code)
+}

@@ -93,3 +93,18 @@ func TestSeedCreateError(t *testing.T) {
 
 	assert.Error(t, Seed(db, testConfig()))
 }
+func TestSeedSyncsExistingAccount(t *testing.T) {
+	db := NewTestDB()
+	assert.NoError(t, Seed(db, testConfig()))
+
+	// password dan role admin berubah di luar seeder
+	assert.NoError(t, db.Model(&User{}).Where("username = ?", "admin").
+		Updates(map[string]interface{}{"password": "rusak", "role": "member"}).Error)
+
+	assert.NoError(t, Seed(db, testConfig()))
+
+	var admin User
+	assert.NoError(t, db.Where("username = ?", "admin").First(&admin).Error)
+	assert.Equal(t, "admin", admin.Role)
+	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte("admin")))
+}
