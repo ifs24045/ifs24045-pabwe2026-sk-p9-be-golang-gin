@@ -492,3 +492,16 @@ func TestRespondErrorDefault(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Equal(t, "error", decode(t, w)["status"])
 }
+
+func TestRegisterRole(t *testing.T) {
+	db := database.NewTestDB()
+	svc := NewService(NewRepository(db), "rahasia")
+
+	admin, err := svc.Register(RegisterRequest{Username: "adminbaru", Email: "a@x.com", Password: "secret1", Role: " Admin "})
+	assert.NoError(t, err)
+	assert.Equal(t, "admin", admin.Role)
+
+	member, err := svc.Register(RegisterRequest{Username: "memberbaru", Email: "m@x.com", Password: "secret1", Role: "superuser"})
+	assert.NoError(t, err)
+	assert.Equal(t, "member", member.Role)
+}

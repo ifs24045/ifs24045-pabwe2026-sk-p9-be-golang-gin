@@ -42,6 +42,7 @@ type PostResponse struct {
 	ID             uint       `json:"id"`
 	UserID         uint       `json:"user_id,omitempty"`
 	Author         *Author    `json:"author,omitempty"`
+	AuthorName     string     `json:"author_name"`
 	Title          string     `json:"title"`
 	Slug           string     `json:"slug"`
 	Category       string     `json:"category"`
@@ -72,6 +73,7 @@ type AdminUserResponse struct {
 	Email          string    `json:"email"`
 	Role           string    `json:"role"`
 	TotalPosts     int64     `json:"total_posts"`
+	TotalArticles  int64     `json:"total_articles"`
 	TotalPublished int64     `json:"total_published"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -93,8 +95,9 @@ func ToPostResponse(post *database.Post) PostResponse {
 		CreatedAt:      post.CreatedAt,
 		UpdatedAt:      post.UpdatedAt,
 	}
-	if post.User != nil {
+		if post.User != nil {
 		resp.Author = &Author{ID: post.User.ID, Username: post.User.Username}
+		resp.AuthorName = post.User.Username
 	}
 	return resp
 }

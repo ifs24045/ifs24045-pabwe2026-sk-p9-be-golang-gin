@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ErrAIUnavailable    = errors.New("Layanan AI gagal merespons")
-	ErrInvalidAIResponse = errors.New("Respons AI tidak dapat dibaca")
+	ErrAIUnavailable     = errors.New("Layanan OpenAI gagal merespons")
+	ErrInvalidAIResponse = errors.New("Respons OpenAI tidak dapat dibaca")
 )
 
 // Service menghasilkan draf artikel dengan AI yang didukung Search Engine.

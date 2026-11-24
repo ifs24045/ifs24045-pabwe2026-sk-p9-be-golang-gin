@@ -804,6 +804,7 @@ func TestPublicResponsesHideUserID(t *testing.T) {
 	mkPost(t, db, owner.ID, "Judul Publik", "judul-publik", "Umum", true)
 
 	w := call(r, http.MethodGet, "/public/posts", "", "")
+	assert.Contains(t, w.Body.String(), `"author_name":"andi"`)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.NotContains(t, w.Body.String(), "user_id")
 

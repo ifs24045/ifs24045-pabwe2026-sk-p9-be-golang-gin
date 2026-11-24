@@ -342,12 +342,13 @@ func TestHandlerGenerate(t *testing.T) {
 func TestHandlerGenerateAIErrors(t *testing.T) {
 	r := newRouter(&stubSearch{}, &stubChat{err: errBoom})
 	w := doPost(r, `{"topic":"Belajar Go"}`)
-	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Equal(t, "error", decode(t, w)["status"])
+	assert.Contains(t, strings.ToLower(decode(t, w)["message"].(string)), "openai")
 
 	r = newRouter(&stubSearch{}, &stubChat{reply: "bukan json"})
 	w = doPost(r, `{"topic":"Belajar Go"}`)
-	assert.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 func TestRespondErrorDefault(t *testing.T) {
 	w := httptest.NewRecorder()

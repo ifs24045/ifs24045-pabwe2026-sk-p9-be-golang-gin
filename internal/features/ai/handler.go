@@ -22,7 +22,7 @@ func NewHandler(service *Service) *Handler {
 func respondError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrAIUnavailable), errors.Is(err, ErrInvalidAIResponse):
-		response.Error(c, http.StatusBadGateway, err.Error())
+		response.Error(c, http.StatusInternalServerError, err.Error())
 	default:
 		response.Error(c, http.StatusInternalServerError, "Terjadi kesalahan pada server")
 	}
