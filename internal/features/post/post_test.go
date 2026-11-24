@@ -736,7 +736,7 @@ func TestHandlerServerErrors(t *testing.T) {
 	u := mkUser(t, db, "andi")
 	assert.NoError(t, db.Migrator().DropTable(&database.Post{}))
 
-	for _, path := range []string{"/public/posts", "/posts", "/posts/stats", "/admin/users", "/admin/posts"} {
+	for _, path := range []string{"/public/posts", "/posts", "/posts/stats", "/admin/users", "/admin/posts", "/admin/users/1/posts"} {
 		w := call(r, http.MethodGet, path, "", uid(u))
 		assert.Equal(t, http.StatusInternalServerError, w.Code, path)
 		assert.Equal(t, "error", decode(t, w)["status"])
@@ -762,4 +762,56 @@ func TestHandlerUpdateChecksOwnershipBeforeBody(t *testing.T) {
 	// body kosong tetap menghasilkan 404 / 403, bukan 400
 	assert.Equal(t, http.StatusNotFound, call(r, http.MethodPut, "/posts/9999", `{}`, uid(owner)).Code)
 	assert.Equal(t, http.StatusForbidden, call(r, http.MethodPut, "/posts/"+strconv.Itoa(int(p.ID)), `{}`, uid(other)).Code)
+}
+
+func TestHandlerCreateAndUpdateWithPublishFlag(t *testing.T) {
+	r, db := handlerSetup(t)
+	owner := mkUser(t, db, "andi")
+
+	// dibuat langsung terbit
+	w := call(r, http.MethodPost, "/posts", `{"title":"Langsung Terbit","content":"isi","is_published":true}`, uid(owner))
+	assert.Equal(t, http.StatusCreated, w.Code)
+	data := decode(t, w)["data"].(map[string]interface{})
+	id := strconv.Itoa(int(data["id"].(float64)))
+	assert.Equal(t, true, data["is_published"])
+	assert.NotNil(t, data["published_at"])
+
+	// update is_published true pada artikel yang sudah terbit: tetap terbit
+	w = call(r, http.MethodPut, "/posts/"+id, `{"title":"Langsung Terbit","content":"isi","is_published":true}`, uid(owner))
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, true, decode(t, w)["data"].(map[string]interface{})["is_published"])
+
+	// update is_published false: kembali menjadi draf
+	w = call(r, http.MethodPut, "/posts/"+id, `{"title":"Langsung Terbit","content":"isi","is_published":false}`, uid(owner))
+	assert.Equal(t, http.StatusOK, w.Code)
+	data = decode(t, w)["data"].(map[string]interface{})
+	assert.Equal(t, false, data["is_published"])
+	assert.Nil(t, data["published_at"])
+
+	// update is_published true pada draf: terbit dengan published_at
+	w = call(r, http.MethodPut, "/posts/"+id, `{"title":"Langsung Terbit","content":"isi","is_published":true}`, uid(owner))
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotNil(t, decode(t, w)["data"].(map[string]interface{})["published_at"])
+
+	// kategori tidak valid pada PUT -> 400
+	w = call(r, http.MethodPut, "/posts/"+id, `{"title":"x","content":"y","category":"Salah"}`, uid(owner))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPublicResponsesHideUserID(t *testing.T) {
+	r, db := handlerSetup(t)
+	owner := mkUser(t, db, "andi")
+	mkPost(t, db, owner.ID, "Judul Publik", "judul-publik", "Umum", true)
+
+	w := call(r, http.MethodGet, "/public/posts", "", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), "user_id")
+
+	w = call(r, http.MethodGet, "/public/posts/judul-publik", "", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), "user_id")
+
+	// endpoint penulis tetap menyertakan user_id
+	w = call(r, http.MethodGet, "/posts", "", uid(owner))
+	assert.Contains(t, w.Body.String(), "user_id")
 }

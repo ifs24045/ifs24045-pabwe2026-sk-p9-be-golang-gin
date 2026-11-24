@@ -89,6 +89,34 @@ func lookupError(err error, notFound error) error {
 	return err
 }
 
+// toPublicResponses sama seperti toResponses, tetapi menyembunyikan data internal (user_id).
+func toPublicResponses(posts []database.Post) []PostResponse {
+	responses := make([]PostResponse, 0, len(posts))
+	for i := range posts {
+		resp := ToPostResponse(&posts[i])
+		resp.UserID = 0
+		responses = append(responses, resp)
+	}
+	return responses
+}
+
+// applyPublish menerapkan status terbit dari permintaan (nil = tidak diubah).
+func applyPublish(post *database.Post, want *bool) {
+	if want == nil {
+		return
+	}
+	if !*want {
+		post.IsPublished = false
+		post.PublishedAt = nil
+		return
+	}
+	if !post.IsPublished {
+		now := time.Now()
+		post.IsPublished = true
+		post.PublishedAt = &now
+	}
+}
+
 func toResponses(posts []database.Post) []PostResponse {
 	responses := make([]PostResponse, 0, len(posts))
 	for i := range posts {
@@ -160,7 +188,7 @@ func (s *Service) ListPublic(filter ListFilter) ([]PostResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return toResponses(posts), nil
+	return toPublicResponses(posts), nil
 }
 
 // GetPublic mengambil satu artikel terbit berdasarkan slug.
@@ -170,6 +198,7 @@ func (s *Service) GetPublic(slug string) (*PostResponse, error) {
 		return nil, lookupError(err, ErrPostNotFound)
 	}
 	resp := ToPostResponse(post)
+	resp.UserID = 0
 	return &resp, nil
 }
 
@@ -207,6 +236,7 @@ func (s *Service) Create(userID uint, req PostRequest) (*PostResponse, error) {
 	}
 	post.UserID = userID
 	post.Slug = slug
+	applyPublish(&post, req.IsPublished)
 
 	if err := s.repo.Create(&post); err != nil {
 		return nil, err
@@ -231,6 +261,8 @@ func (s *Service) Update(userID, id uint, req PostRequest) (*PostResponse, error
 	post.Excerpt = data.Excerpt
 	post.Content = data.Content
 	post.CoverImagePath = data.CoverImagePath
+	post.CoverImagePath = data.CoverImagePath
+	applyPublish(post, req.IsPublished)
 
 	if err := s.repo.Update(post); err != nil {
 		return nil, err

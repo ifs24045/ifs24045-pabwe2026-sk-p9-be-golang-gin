@@ -16,6 +16,7 @@ type PostRequest struct {
 	Excerpt        string `json:"excerpt"`
 	Content        string `json:"content" binding:"required"`
 	CoverImagePath string `json:"cover_image_path"`
+	IsPublished    *bool  `json:"is_published"`
 }
 
 // ListFilter adalah filter pencarian artikel publik.
@@ -39,7 +40,7 @@ type Author struct {
 // PostResponse adalah data artikel yang dikirim ke klien.
 type PostResponse struct {
 	ID             uint       `json:"id"`
-	UserID         uint       `json:"user_id"`
+	UserID         uint       `json:"user_id,omitempty"`
 	Author         *Author    `json:"author,omitempty"`
 	Title          string     `json:"title"`
 	Slug           string     `json:"slug"`

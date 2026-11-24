@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"io"
+	"log"
 )
 
 // ChatClient mengirim prompt ke OpenAI Chat Completions.
@@ -41,7 +43,7 @@ type chatMessage struct {
 type chatRequest struct {
 	Model       string        `json:"model"`
 	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
+	Temperature float64       `json:"temperature,omitempty"`
 }
 
 type chatResponse struct {
@@ -58,7 +60,6 @@ func (c *openAIClient) Complete(ctx context.Context, systemPrompt, userPrompt st
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
-		Temperature: 0.7,
 	})
 
 	endpoint := strings.TrimRight(c.endpoint, "/") + "/chat/completions"
@@ -77,7 +78,9 @@ func (c *openAIClient) Complete(ctx context.Context, systemPrompt, userPrompt st
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
+		log.Printf("[ai] LLM mengembalikan status %d: %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 		return "", fmt.Errorf("openai mengembalikan status %d", resp.StatusCode)
 	}
 
