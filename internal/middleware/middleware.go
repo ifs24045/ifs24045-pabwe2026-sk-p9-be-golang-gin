@@ -105,9 +105,9 @@ type visitor struct {
 	resetAt time.Time
 }
 
-// RateLimiter membatasi 100 request per menit untuk setiap alamat IP.
+// RateLimiter membatasi 1000 request per menit untuk setiap alamat IP.
 func RateLimiter() gin.HandlerFunc {
-	return RateLimiterWith(100, time.Minute)
+	return RateLimiterWith(1000, time.Minute)
 }
 
 // RateLimiterWith membatasi jumlah request per jendela waktu untuk setiap IP.
